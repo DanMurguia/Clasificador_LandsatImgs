@@ -54,7 +54,7 @@ fig.colorbar(img_red, ax = ax2)
 fig,axs = plt.subplots(1,2, figsize=((10,5)))
 index = np.array([4,3,2])
 colors = img_dtst[index,:,:].astype(np.float64)
-max_val = 10000
+max_val = 5000
 min_val = 0
 
 colors[colors[:,:,:] > max_val] = max_val
