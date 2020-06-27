@@ -53,6 +53,8 @@ fig.colorbar(img_red, ax = ax2)
 '''######3D plotting########
 fig,axs = plt.subplots(1,2, figsize=((10,5)))
 index = np.array([4,3,2])
+nir_band = img_dtst[3,:,:]
+###Se ajustan los colores a los valores dentro de RGB###
 colors = img_dtst[index,:,:].astype(np.float64)
 max_val = 5000
 min_val = 0
@@ -65,16 +67,22 @@ for b in range(colors.shape[0]):
     
 colors_reshaped = reshape_as_image(colors)
 print (colors_reshaped.shape)
-
-#Calcular NDVI
-nir_band = img_dtst[3,:,:]
+'''#######Calcular NDVI
 red_band = img_dtst[2,:,:]
 np.seterr(divide='ignore', invalid="ignore")
 ndvi = (nir_band.astype(float)-red_band.astype(float))/(nir_band.astype(float)+red_band.astype(float))
+###Calcular NDWI###
+green_band = img_dtst[1,:,:]
+np.seterr(divide='ignore', invalid="ignore")
+ndwi = (green_band.astype(float)-nir_band.astype(float))/(green_band.astype(float)+nir_band.astype(float))'''
+##Calcular NDBI##
+swir_band = img_dtst[4,:,:]
+np.seterr(divide='ignore', invalid="ignore")
+ndvi= (swir_band.astype(float)-nir_band.astype(float))/(swir_band.astype(float)+nir_band.astype(float))
 #mostrar imagen a color
 axs[0].imshow(colors_reshaped)
 axs[0].set_title('Color Image')
 
-# Mostrar NDVI
-axs[1].imshow(ndvi, cmap='RdYlGn')
-axs[1].set_title('NDVI')
+# Mostrar Indice
+axs[1].imshow(ndwi, cmap='RdYlGn')
+axs[1].set_title('NDWI')
