@@ -78,11 +78,11 @@ ndwi = (green_band.astype(float)-nir_band.astype(float))/(green_band.astype(floa
 ##Calcular NDBI##
 swir_band = img_dtst[4,:,:]
 np.seterr(divide='ignore', invalid="ignore")
-ndvi= (swir_band.astype(float)-nir_band.astype(float))/(swir_band.astype(float)+nir_band.astype(float))
+ndbi= (swir_band.astype(float)-nir_band.astype(float))/(swir_band.astype(float)+nir_band.astype(float))
 #mostrar imagen a color
 axs[0].imshow(colors_reshaped)
 axs[0].set_title('Color Image')
 
 # Mostrar Indice
-axs[1].imshow(ndwi, cmap='RdYlGn')
+axs[1].imshow(ndbi, cmap='RdYlGn')##se debe cambiar el indice a graficar
 axs[1].set_title('NDWI')
