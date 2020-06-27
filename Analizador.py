@@ -8,53 +8,82 @@ from pyrsgis.convert import changeDimension
 from rasterio.plot import show, show_hist, reshape_as_raster, reshape_as_image
 
 
-os.chdir("../Imagenes")
+os.chdir("/home/pixt3/Imágenes/")
 
-imagen_1 = "op_sf_09_04_2008_bandas.tif"
+'''
+####BANDAS SEPARADAS####
+landsat_bands =["/home/pixt3/Documentos/Señales/Proyecto/imagenes/2018-10-13, Sentinel-2B L1C, B02.tiff",#Blue
+                "/home/pixt3/Documentos/Señales/Proyecto/imagenes/2018-10-13, Sentinel-2B L1C, B03.tiff",#Green
+                "/home/pixt3/Documentos/Señales/Proyecto/imagenes/2018-10-13, Sentinel-2B L1C, B04.tiff",#Red
+                "/home/pixt3/Documentos/Señales/Proyecto/imagenes/2018-10-13, Sentinel-2B L1C, B05.tiff",#NIR
+                "/home/pixt3/Documentos/Señales/Proyecto/imagenes/2018-10-13, Sentinel-2B L1C, B06.tiff",#SWIR 1
+                "/home/pixt3/Documentos/Señales/Proyecto/imagenes/2018-10-13, Sentinel-2B L1C, B07.tiff",]#SWIR 2
 
-dataset1 = rt.open(imagen_1)
-img_dtst = dataset1.read()
-dtgt1 = dataset1.transform
-nbandas = dataset1.count
-filas, columnas = dataset1.shape
+dataset1 = []
 
-print('Number of bands in image: {n}\n'.format(n=nbandas))
-print('Image geo-transform:\n{dtgt1}\n'.format(dtgt1=dtgt1))
+for band in landsat_bands:
+    with rt.open(band) as f:
+        dataset1.append(f.read(1))
 
-blue = dataset1.read(1)
-green = dataset1.read(2)
-red = dataset1.read(3)
-NIR = dataset1.read(4)
-SWIR = dataset1.read(5)
-'''####2D plotting###def plot_2D():
+img_dtst = np.array(dataset1, dtype=dataset1[0].dtype)
+
+
+'''
+###IMAGEN COMPLETA####
+dataset = rt.open("/home/pixt3/Imágenes/LE70220491999322EDC01_stack.gtif")
+img_dtst = dataset.read()
+
+
+print(img_dtst.shape)
+
+'''
+#dtgt1 = dataset1.transform
+#nbandas = dataset1.count
+#filas, columnas = dataset1.shape
+#print('Number of bands in image: {n}\n'.format(n=nbandas))
+#print('Image geo-transform:\n{dtgt1}\n'.format(dtgt1=dtgt1))
+#show(img_dtst[[2,1,0], :, :])
+'''
+
+blue = img_dtst[0, :, :]
+green = img_dtst[1, :, :]
+red = img_dtst[2, :, :]
+NIR = img_dtst[3, :, :]
+SWIR1 = img_dtst[4, :, :]
+SWIR2 = img_dtst[5, :, :]
+
+'''
+show(blue)
+show(green)
+show(red)
+show(NIR)
+show(SWIR1)
+show(SWIR2)
+'''
+
 print('Array shape before: {shp} (size is {sz})'.format(shp=red.shape, sz=red.size))
-
 red_flat = np.ndarray.flatten(red) 
 nir_flat = np.ndarray.flatten(NIR) 
-
 print('Array shape after: {shp} (size is {sz})'.format(shp=red_flat.shape, sz=red_flat.size))
 
+####2D plotting###def plot_2D():
 fig,(ax, ax2) = plt.subplots(1,2, figsize=((10,3)))
-#ax.scatter(red_flat, nir_flat, color='r', marker='o')
-#ax.set_xlabel('Red Reflectance')
-#ax.set_ylabel('NIR label')
 max_ref = np.amax([np.amax(NIR),np.amax(red)])
 
-img_nir = ax.imshow(NIR, cmap=plt.cm.Greys)
+img_nir = ax.imshow(NIR, cmap='Greys')
 ax.set_title("Banda NIR")
 img_nir.set_clim(vmin=0, vmax=max_ref)
 fig.colorbar(img_nir, ax = ax)
 
-img_red = ax2.imshow(red, cmap=plt.cm.Greys)
+img_red = ax2.imshow(red, cmap='Greys')
 ax2.set_title("Banda Roja")
 img_nir.set_clim(vmin=0, vmax=max_ref)
 fig.colorbar(img_red, ax = ax2)
 
-'''######3D plotting########
-fig,axs = plt.subplots(1,2, figsize=((10,5)))
+
+######3D plotting#######
 index = np.array([4,3,2])
-nir_band = img_dtst[3,:,:]
-###Se ajustan los colores a los valores dentro de RGB###
+##Se ajustan los colores a los valores dentro de RGB###
 colors = img_dtst[index,:,:].astype(np.float64)
 max_val = 5000
 min_val = 0
@@ -64,25 +93,41 @@ colors[colors[:,:,:] < min_val] = min_val
 
 for b in range(colors.shape[0]):
     colors[b, :, :] = colors[b, :, :] * 1 / (max_val - min_val)
-    
+
+print(colors.shape)
 colors_reshaped = reshape_as_image(colors)
 print (colors_reshaped.shape)
-'''#######Calcular NDVI
-red_band = img_dtst[2,:,:]
+
+#######Calcular NDVI
 np.seterr(divide='ignore', invalid="ignore")
+red_band = img_dtst[2,:,:]
+nir_band = img_dtst[3,:,:]
 ndvi = (nir_band.astype(float)-red_band.astype(float))/(nir_band.astype(float)+red_band.astype(float))
+fig,axs = plt.subplots(1,2, figsize=((10,5)))
+
+###Imagen a color###
+axs[0].imshow(colors_reshaped)
+axs[0].set_title('Color image')
+
+###NDVI###
+axs[1].imshow(ndvi, cmap='RdYlGn')
+axs[1].set_title('NDVI')
+
+plt.show()
+'''
 ###Calcular NDWI###
 green_band = img_dtst[1,:,:]
 np.seterr(divide='ignore', invalid="ignore")
-ndwi = (green_band.astype(float)-nir_band.astype(float))/(green_band.astype(float)+nir_band.astype(float))'''
+ndwi = (green_band.astype(float)-nir_band.astype(float))/(green_band.astype(float)+nir_band.astype(float))
 ##Calcular NDBI##
-swir_band = img_dtst[4,:,:]
-np.seterr(divide='ignore', invalid="ignore")
-ndbi= (swir_band.astype(float)-nir_band.astype(float))/(swir_band.astype(float)+nir_band.astype(float))
+#swir_band = img_dtst[4,:,:]
+#np.seterr(divide='ignore', invalid="ignore")
+#ndbi= (swir_band.astype(float)-nir_band.astype(float))/(swir_band.astype(float)+nir_band.astype(float))
 #mostrar imagen a color
-axs[0].imshow(colors_reshaped)
-axs[0].set_title('Color Image')
+#axs[0].imshow(colors_reshaped)
+#axs[0].set_title('Color Image')
 
 # Mostrar Indice
-axs[1].imshow(ndbi, cmap='RdYlGn')##se debe cambiar el indice a graficar
-axs[1].set_title('NDWI')
+#axs[1].imshow(ndbi, cmap='RdYlGn')##se debe cambiar el indice a graficar
+#axs[1].set_title('NDWI')
+'''
