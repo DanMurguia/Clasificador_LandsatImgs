@@ -8,6 +8,7 @@ import rasterio.mask
 import numpy as np
 import seaborn as sns
 import pandas as pd
+import keras
 from rasterio.plot import adjust_band
 from rasterio.plot import reshape_as_raster, reshape_as_image
 from rasterio.plot import show
@@ -26,6 +27,12 @@ from mpl_toolkits.mplot3d import Axes3D
 from time import time
 from sklearn.manifold import TSNE
 from sklearn import neighbors, datasets
+from keras import backend as K
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten
+from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Activation, BatchNormalization
+from keras.callbacks import ModelCheckpoint
 
 ###Diccionario global de clases NLCD################################
 class_names = dict((
@@ -328,7 +335,7 @@ landsat_image = landsat_dataset.read()
 bandNIR = landsat_image[4, :, :]
 bandRed = landsat_image[3, :, :]
 ndvi = np.clip(calculo_NDVI(bandNIR,bandRed),-1,1)
-'''print('\nMax NDVI: {m}'.format(m=ndvi.max()))
+print('\nMax NDVI: {m}'.format(m=ndvi.max()))
 print('Mean NDVI: {m}'.format(m=ndvi.mean()))
 print('Median NDVI: {m}'.format(m=np.median(ndvi)))
 print('Min NDVI: {m}'.format(m=ndvi.min()))
@@ -343,7 +350,7 @@ qa_band[qa_band == -9999] = 0
 print(np.unique(qa_band))
 
 fig, ax = plt.subplots(figsize=(15,15))
-ax.imshow(qa_band, cmap='gray')'''
+ax.imshow(qa_band, cmap='gray')
 
 ######Leemos la imagen de entrenamiento predecida############
 
@@ -353,13 +360,13 @@ print(labels_image.shape)
 #Se cuentan cuantos pixeles hay de cada clase
 unique, counts = np.unique(labels_image, return_counts=True)
 print(list(zip(unique, counts)))
-'''#Muestra la imagen de entrenamiento con clases convinadas
+#Muestra la imagen de entrenamiento con clases convinadas
 fig, ax = plt.subplots(figsize=(10, 10))
-ax.imshow(labels_image[0])'''
+ax.imshow(labels_image[0])
 cmap = color_map(labels_image,colors)
-'''#Muestra la imagen con el mapa de colores asignado
+#Muestra la imagen con el mapa de colores asignado
 ig, axs = plt.subplots(figsize=(10,10))
-axs.imshow(labels_image[0,:, :], cmap=cmap, interpolation='none')'''
+axs.imshow(labels_image[0,:, :], cmap=cmap, interpolation='none')
 
 #####Genera un conjunto de ubicaciones de píxeles balanceadas##########
 train_pixels = gen_balanced_pixel_locations([landsat_dataset], train_count=8000,
@@ -375,7 +382,7 @@ for pixel in train_pixels:
     l8_proj = Proj(landsat_datasets[ds_index].crs)
     label_proj = Proj(labels_dataset.crs)
     
-    '''# ubicacion geografica de landsat
+    # ubicacion geografica de landsat
     x,y = landsat_datasets[ds_index].xy(r,c)
     # pasar de la proyección de etiquetas a la proyección de Landsat
     x,y = transform(l8_proj, label_proj ,x,y)
@@ -397,11 +404,11 @@ fig, ax = plt.subplots(figsize=[15,15])
 #Muestra los pixeles de entrenamiento sobre la imagen de entrenamiento recoloreada#
 ax.imshow(labels_image[0,:, :], cmap=cmap, interpolation='none')
 
-plt.scatter(label_locations[:, 1], label_locations[:, 0], c='r')'''
+plt.scatter(label_locations[:, 1], label_locations[:, 0], c='r')
 
 ####################Genera zonas recortadas de la imagen de manera aleatoria###############
 
-'''im_batch = None
+im_batch = None
 
 count = 0
 for (im, label) in tile_generator(landsat_datasets, labels_dataset, 128, 128, train_pixels, 10):
@@ -417,9 +424,9 @@ axs[0,1].imshow(im_batch[1,:,:,3:6])
 axs[0,2].imshow(im_batch[2,:,:,3:6])
 axs[1,0].imshow(im_batch[3,:,:,3:6])
 axs[1,1].imshow(im_batch[4,:,:,3:6])
-axs[1,2].imshow(im_batch[5,:,:,3:6])'''
+axs[1,2].imshow(im_batch[5,:,:,3:6])
 #Genera un dataset  con una zona para que scikit-learn pueda visualizar los datos
-'''im_batch = None
+im_batch = None
 label_batch = None
 
 sample_size = 500
@@ -455,10 +462,10 @@ ax.scatter(
 ax.set_xlabel('pca-1')
 ax.set_ylabel('pca-2')
 ax.set_zlabel('pca-3')
-plt.show()'''
+plt.show()
 
 #################Se utiliza el método de incrustación de vecinos estocásticos distribuidos en T para visualizar en 2D##############
-'''time_start = time()
+time_start = time()
 tsne = TSNE(n_components=2, verbose=1, perplexity=100, n_iter=1000)
 tsne_results = tsne.fit_transform(im_batch_reshaped)
 print('TSNE completado! Tiempo transcurrido: {} seconds'.format(time()-time_start))
@@ -473,8 +480,9 @@ sns.scatterplot(
     data=df_subset,
     legend="full",
     alpha=0.3
-)'''
-#####################Se obtiene la Matriz de confusión con el algoritmo K Nearest Neighbors
+)
+#####################Se obtiene la Matriz de confusión con el algoritmo K Nearest Neighbors#######
+#Se genera un dataset con una zona recortada de la imagen para interpretacion con sci-kit learn
 im_batch = None
 label_batch = None
 
@@ -509,5 +517,113 @@ plot_confusion_matrix(y_val, pred_index, classes=np.array(list(class_names)),
 
 # Imprime la matriz de confusion normalizada
 plot_confusion_matrix(y_val, pred_index, classes=np.array(list(class_names)),
+                      class_dict=class_na
+                      mes,
+                      normalize=True)
+
+##########################Construccion del modelo de Red neuronal####################
+#Creacion de hyperparametros
+batch_size = 25
+epochs = 25
+num_classes = len(class_names)
+
+# Dimensiones de imagen
+tile_side = 32
+img_rows, img_cols = tile_side, tile_side
+img_bands = landsat_datasets[0].count- 1
+input_shape = (img_rows, img_cols, img_bands)
+
+#Se crea y se configura la arquitectura de red neuronal convolucional
+model = Sequential()
+
+model.add(Conv2D(32, (3, 3), padding='same', input_shape=input_shape))
+model.add(BatchNormalization())
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Conv2D(64, (3, 3), padding='same'))
+model.add(BatchNormalization())
+model.add(Activation('relu'))
+
+model.add(Conv2D(64, (3, 3), padding='same'))
+model.add(BatchNormalization())
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Conv2D(128, (3, 3), padding='same'))
+model.add(BatchNormalization())
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Conv2D(256, (3, 3), padding='same'))
+model.add(BatchNormalization())
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Dropout(0.25))
+
+model.add(Flatten())
+model.add(Dense(128))
+model.add(BatchNormalization())
+model.add(Activation('relu'))
+model.add(Dropout(0.25))
+
+model.add(Dense(128))
+model.add(BatchNormalization())
+model.add(Activation('relu'))
+model.add(Dropout(0.25))
+
+
+model.add(Dense(num_classes))
+model.add(Activation('softmax'))
+
+model.summary()
+
+#Se dividen los datos de entrenamiento y de validacion
+train_to_val_ratio = 0.8
+train_px = train_pixels[:int(len(train_pixels)*train_to_val_ratio)]
+val_px = train_pixels[int(len(train_pixels)*train_to_val_ratio):]
+sgd = keras.optimizers.SGD(lr=0.0001, decay=1e-6, momentum=0.9, nesterov=True)
+metrics=['accuracy']
+#se compila el modelo
+model.compile(optimizer=sgd, loss='categorical_crossentropy', metrics=metrics)
+history = model.fit_generator(generator=tile_generator(landsat_datasets, labels_dataset, tile_side, tile_side, train_px, batch_size, merge=True), 
+                    steps_per_epoch=len(train_px) // batch_size, epochs=epochs, verbose=1,
+                    validation_data=tile_generator(landsat_datasets, labels_dataset, tile_side, tile_side, val_px, batch_size, merge=True),
+                    validation_steps=len(val_px) // batch_size)
+
+plt.figure(figsize=(10,10))
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('Precision del modelo')
+plt.ylabel('Precision(%)')
+plt.xlabel('Tiempo')
+plt.legend(['Entrenamiento', 'Prueba'], loc='upper left')
+
+######################Muestra de matriz de confusión del modelo con los datos de prueba################
+
+predictions = model.predict_generator(generator=tile_generator(landsat_datasets, labels_dataset, tile_side, tile_side, train_px, batch_size, merge=True), 
+                        steps=len(train_px) // batch_size,
+                         verbose=1)
+
+eval_generator = tile_generator(landsat_datasets, labels_dataset, tile_side, tile_side, train_px, batch_size=1, merge=True)
+
+labels = np.empty(predictions.shape)
+count = 0
+while count < len(labels):
+    image_b, label_b = next(eval_generator)
+    labels[count] = label_b
+    count += 1
+    
+label_index = np.argmax(labels, axis=1)     
+pred_index = np.argmax(predictions, axis=1)
+
+np.set_printoptions(precision=2)
+
+# Imprime la matriz de confusion no normalizada
+plot_confusion_matrix(label_index, pred_index, classes=np.array(list(class_names)),
+                      class_dict=class_names)
+
+# imprime la matriz de confusión normalizada
+plot_confusion_matrix(label_index, pred_index, classes=np.array(list(class_names)),
                       class_dict=class_names,
                       normalize=True)
