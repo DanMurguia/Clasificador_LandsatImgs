@@ -73,26 +73,63 @@ def mostrar_rgb(imagen):
     show(rgb_norm, ax=ax)
     ax.set_title("RGB ")
 
-def mostrar_histograma(dataset):
+def mostrar_histograma(dataset,titulo):
     fig, ax = plt.subplots(figsize=(10,5))
     show_hist(dataset, ax=ax, bins=50, lw=0.0, stacked=False, alpha=0.3, 
-               histtype='stepfilled', title="Histograma sobrelapado")
-##############################################################################
-if __name__ == '__main__':
-    os.chdir("./imagenes")
-    
-    ###IMAGEN COMPLETA####
-    dataset = rt.open("LE70220491999322EDC01_stack.gtif")
-    img_dtst = dataset.read()
-    BLUE_BAND = img_dtst[0,:,:]
-    GREEN_BAND = img_dtst[1,:,:]
-    RED_BAND = img_dtst[2,:,:]
-    NIR_BAND = img_dtst[3,:,:]
-    SWIR1_BAND = img_dtst[4,:,:]
-    
-    '''dtgt1 = dataset.transform## matriz geotransformada 
-    nbandas = dataset.count
-    filas, columnas = dataset.shape'''
-    
-    
+               histtype='stepfilled', title=titulo)
 
+
+def mostrar_junto(imagen1, indice1):
+       # toma las bandas RGB
+    index = np.array([3, 2, 1])
+    colors = imagen1[index, :, :].astype(np.float64)
+    
+    # Se alarga la imagen para mejor visualizacion
+    max_val = 2500
+    min_val = 0
+    
+    # Se definen valores maximos y minimos
+    colors[colors[:, :, :] > max_val] = max_val
+    colors[colors[:, :, :] < min_val] = min_val
+    
+    for b in range(colors.shape[0]):
+        colors[b, :, :] = colors[b, :, :] * 1 / (max_val - min_val)
+    
+    # los rásteres tienen el formato [bandas, filas, columnas], mientras que las imágenes suelen ser [filas, columnas, bandas]
+    # y nuestra matriz necesita ser reformada
+    print(colors.shape)
+    colors_reshaped = reshape_as_image(colors)
+    print(colors_reshaped.shape)
+    
+    
+    fig, axs = plt.subplots(1, 2, figsize=(15, 15)) 
+    
+    # Muestra imagen a color
+    axs[0].imshow(colors_reshaped)
+    axs[0].set_title('Color Image')
+    
+    # Muestra el indice
+    axs[1].imshow(indice1, cmap='RdYlGn')
+    axs[1].set_title('NDVI')
+    
+    fig.show()
+    
+    ##############################################################################
+    if __name__ == '__main__':
+        os.chdir("./imagenes")
+        
+        ###IMAGEN COMPLETA####
+        dataset = rt.open("LE70220491999322EDC01_stack.gtif")
+        img_dtst = dataset.read()
+        BLUE_BAND = img_dtst[0,:,:]
+        GREEN_BAND = img_dtst[1,:,:]
+        RED_BAND = img_dtst[2,:,:]
+        NIR_BAND = img_dtst[3,:,:]
+        SWIR1_BAND = img_dtst[4,:,:]
+        
+        '''dtgt1 = dataset.transform## matriz geotransformada 
+        nbandas = dataset.count
+        filas, columnas = dataset.shape'''
+        
+        
+    

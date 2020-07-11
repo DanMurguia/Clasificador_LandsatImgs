@@ -137,6 +137,29 @@ def val_espectral(X_train, y_train):
     ax[0].set_title('Vista general de Intensidades de BAnda')
     ax[1].set_title('Subset de Intensisdades de Banda más Bajas')
     ax[2].set_title('Subset de Intensisdades de Banda más Altas')
+    
+##############se visualizan las firmas espectrales de los pixeles juntos###########
+def valores_espectrales(label_batch, im_batch_reshaped, class_names):   
+    fig, ax = plt.subplots(1,1, figsize=[10,10])
+    
+    # numbers 1-8
+    band_count = np.arange(1,8)
+    
+    y = np.argmax(label_batch, axis=1)
+    X = im_batch_reshaped
+    
+    classes = np.unique(y)
+    for class_type in classes:
+        band_intensity = np.mean(X[y==class_type, :], axis=0)
+        ax.plot(band_count, band_intensity, label=class_names[class_type])
+    # plot them as lines
+    
+    # Add some axis labels
+    ax.set_xlabel('Band #')
+    ax.set_ylabel('Reflectance Value')
+    # Add a title
+    ax.set_title('Band Intensities Full Overview')
+    ax.legend(loc='upper left')
 
 ################Función de ayuda para interpretar clases ########################
 def str_class_to_int(class_array):
@@ -171,21 +194,14 @@ def color_stretch(image, index):
     for b in range(colors.shape[2]):
         colors[:, :, b] = rasterio.plot.adjust_band(colors[:, :, b])
     return colors
-    return(class_array.astype(int))
+
 
 
 ##### Crea un mapa de colores para mostrar en matplotlib#####
-def color_map(class_prediction):
+def color_map(src,diccionario):
     # Encuentra el mayor valor de los pixeles en la clasificacion
-    n = int(np.max(class_prediction))
-    colors = dict((
-        (0, (48, 156, 214, 255)),   # Azul- clase Water
-        (1, (139,69,19, 255)),      # Café - clase WetSand
-        (2, (96, 19, 134, 255)),    # Morado - clase Emergent Wetland
-        (3, (244, 164, 96, 255)),   # Bronceado - clase Sand
-        (4, (206, 224, 196, 255)),  # Verde lima - clase Herbaceous
-        (5, (34, 139, 34, 255)),    # verde obscuro - clase Forest 
-    ))
+    n = int(np.max(src))
+    colors = diccionario
     
     # Cambia valores 0 - 255 a float 0 - 1
     for k in colors:
@@ -196,7 +212,7 @@ def color_map(class_prediction):
     index_colors = [colors[key] if key in colors else 
                     (255, 255, 255, 0) for key in range(0, n+1)]
     
-    cmap = plt.matplotlib.colors.ListedColormap(index_colors, 'Classification', n+1)
+    cmap = plt.matplotlib.colors.ListedColormap(index_colors, 'cmap', n+1)
     return cmap
 
 def mostrar_prediccion(path_imagen, class_prediction, reshaped_img):
